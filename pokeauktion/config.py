@@ -33,9 +33,12 @@ class Einstellungen:
     parallele_abrufe: int = int(os.getenv("TCGDEX_PARALLEL", "8"))
     graphql_seitengroesse: int = int(os.getenv("TCGDEX_GRAPHQL_SEITE", "250"))
 
-    # Ab Schritt 2/3 verwendet:
-    anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
-    claude_modell: str = os.getenv("CLAUDE_MODELL", "claude-opus-5-5")
+    # Schritt 2, Weg 2: Claude über das lokal installierte Claude Code (Abo, kein API-Schlüssel)
+    erkennung_claude: str = os.getenv("ERKENNUNG_CLAUDE", "aus")  # aus / unsicher / immer
+    claude_modell: str = os.getenv("CLAUDE_MODELL", "sonnet")
+    claude_befehl: str = os.getenv("CLAUDE_CODE_BEFEHL", "claude")
+
+    # Schritt 3:
     ebay_client_id: str = os.getenv("EBAY_CLIENT_ID", "")
     ebay_client_secret: str = os.getenv("EBAY_CLIENT_SECRET", "")
 

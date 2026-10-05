@@ -3,8 +3,8 @@
 Lokale Web-App, die eBay-Auktionen mit Pokémon-Karten auswertet: Sie erkennt die Karten auf den
 Fotos und zeigt den Cardmarket-Trendpreis jeder Karte sowie die Summe als Spanne.
 
-> **Stand: Schritt 1 von 5. Die Kartendatenbank mit dem Abgleich aus TCGdex ist fertig.**
-> Erkennung (2), eBay-Anbindung (3), Weboberfläche (4) und Motivsuche (5) folgen.
+> **Stand: Schritt 2 von 5.** Kartendatenbank (1) und Erkennung als Skript (2) sind fertig.
+> eBay-Anbindung (3), Weboberfläche (4) und Motivsuche (5) folgen.
 
 Hinweis: Die Preise sind Cardmarket-**Trendwerte** und gelten für gut erhaltene Karten. Der Zustand
 beeinflusst den Preis stark. Zustandsbewertung, Echtheitsprüfung und automatisches Bieten gehören
@@ -25,7 +25,7 @@ pip install -r requirements.txt
 cp .env.example .env               # Windows: copy .env.example .env
 ```
 
-Für Schritt 1 musst du in der `.env` nichts eintragen.
+Für Schritt 1 und 2 musst du in der `.env` nichts eintragen. Es entstehen keine Kosten.
 
 ## Schritt 1: Kartendatenbank
 
@@ -92,6 +92,66 @@ python -m pytest
 
 Die Tests laufen gegen einen nachgebauten TCGdex-Server, ohne Internet.
 
+## Schritt 2: Karten auf Fotos erkennen
+
+```bash
+python -m pokeauktion.erkennen testfotos/foto1.webp
+python -m pokeauktion.erkennen foto.jpg --hinweis "Sammlung deutsch Holo" --rahmen ausgabe/
+```
+
+Die Ausgabe nennt je Karte Name, Sprache, Set und Nummer (bzw. alle möglichen Drucke), Sicherheit,
+Preis oder Preisspanne, den Cardmarket-Link und den Grund für die Zuordnung. Am Ende steht die Summe
+als Spanne und wie viele Karten nicht erkannt wurden. Mit `--rahmen` wird das Foto mit nummerierten
+Rahmen gespeichert.
+
+### So arbeitet die Erkennung
+
+Alles läuft **lokal und kostenlos**, ohne API-Schlüssel:
+
+1. **Zuschnitt** (OpenCV): Helle, kartenförmige Flächen werden gesucht. Bei Ordnerseiten wird das
+   Raster vervollständigt, sodass auch spiegelnde oder angeschnittene Karten einen Rahmen bekommen
+   (orange statt grün).
+2. **Text lesen** (RapidOCR, Modelle im Paket enthalten): Name, KP, Attacken, Schaden. Set-Symbol und
+   Kartennummer werden bewusst nicht verwendet.
+3. **Kandidaten** aus der Datenbank: unscharfe Suche über den Namen in allen Sprachen, bewertet mit KP
+   und Attacken. Die Attacken entscheiden auch über die Sprache, wenn ein Name in mehreren Sprachen
+   gleich ist. Ist der Name unlesbar, wird über die Attacken gesucht.
+4. **Versionen**: Haben mehrere Drucke denselben Text (Nachdruck, Full Art, Shiny), vergleicht die
+   App den Ausschnitt mit den TCGdex-Referenzbildern (Farbverteilung und Bildmerkmale). Sie legt
+   sich nur bei deutlichem Unterschied fest. Sonst zeigt sie alle Drucke mit Preisspanne.
+5. **Sicherheit**: *hoch* = Name, KP/Attacken passen, nur ein möglicher Druck; *mittel* = Karte
+   klar, aber mehrere Drucke möglich oder wenig Belege; *niedrig* = mehrere ähnliche Karten, alle
+   werden angezeigt.
+
+### Optional: unsichere Karten von Claude lesen lassen (über dein Claude-Abo)
+
+Die App kann unsichere Karten zusätzlich von Claude lesen lassen. Sie nutzt dafür das Programm
+**Claude Code**, das in deinem Claude-Abo enthalten ist. Es gibt **keinen API-Schlüssel und keine
+Zusatzkosten**. Jede gelesene Karte zählt aber zu deinem Abo-Kontingent.
+
+1. Claude Code installieren (Anleitung: https://code.claude.com/docs/en/setup). Unter macOS/Linux:
+   `curl -fsSL https://claude.ai/install.sh | bash`, unter Windows (PowerShell):
+   `irm https://claude.ai/install.ps1 | iex`
+2. Einmal `claude` im Terminal starten und mit deinem Claude-Konto anmelden.
+3. In der `.env`: `ERKENNUNG_CLAUDE=unsicher`. Claude liest dann nur Karten mit Sicherheit
+   „niedrig“ oder „nicht erkannt“ sowie Karten, deren mögliche Drucke sich im Preis stark
+   unterscheiden (z. B. normal vs. Shiny). Mit `--claude unsicher` geht das auch für einen einzelnen
+   Aufruf.
+
+Das Modell stellst du mit `CLAUDE_MODELL` ein (`sonnet` schont das Kontingent, `opus` liest
+genauer). Claude bekommt nur den Ausschnitt der einen Karte zu sehen und darf nichts anderes tun
+als diese Bilddatei zu lesen.
+
+### Trefferquote messen
+
+```bash
+python -m pokeauktion.auswerten               # nutzt testfotos/erwartet.txt
+python -m pokeauktion.auswerten --claude unsicher
+```
+
+`testfotos/erwartet.txt` enthält pro Karte eine Zeile: `datei; reihe-spalte; name; sprache; hinweis`.
+Neue Testfotos einfach dazulegen und die Liste ergänzen.
+
 ## Woher die Daten kommen
 
 | Was | Quelle |
@@ -126,13 +186,15 @@ Die Feldnamen stammen aus dem öffentlichen TCGdex-Quellcode (`meta/definitions/
 | `preis_verlauf` | Täglicher Trendpreis |
 | `meta` | Zeitpunkte der letzten Abgleiche |
 
-Referenzbilder werden nicht vorab heruntergeladen, das wären mehrere Gigabyte. Ab Schritt 2
-lädt die Erkennung nur die Bilder der Kandidaten und speichert sie zwischen.
+Referenzbilder werden nicht vorab heruntergeladen, das wären mehrere Gigabyte. Die Erkennung lädt
+nur die Bilder der Kandidaten (kleine Auflösung) und speichert sie in `data/bilder/` zwischen.
+
+`werkzeuge/offline_testdb.py` baut eine Test-Datenbank aus dem npm-Paket `@tcgdata/tcgdex-offline`,
+ohne Preise und ohne Bilder. Das ist nur für Tests ohne Zugang zu TCGdex gedacht, die App nutzt
+immer `python -m pokeauktion.sync`.
 
 ## Ausblick
 
-- **Schritt 2:** Erkennung als Skript, Foto rein, Kartenliste mit Preisen raus. Dafür brauche ich
-  den Ordner `testfotos/` mit Beispielfotos und einen `ANTHROPIC_API_KEY` in der `.env`.
 - **Schritt 3:** eBay Browse API. Hier ergänze ich die Anleitung, wie du die eBay-Zugangsdaten
   bekommst.
 - **Schritt 4:** Weboberfläche, Start mit einem einzigen Befehl.

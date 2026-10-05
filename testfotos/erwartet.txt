@@ -31,4 +31,4 @@ foto3.webp; 2-2; Kramshef; de;
 foto3.webp; 2-3; Murkrow; en;
 foto3.webp; 3-1; Arkani; de;
 foto3.webp; 3-2; Raticate; en;
-foto3.webp; 3-3; Hisuian Arcanine V; en; holo
+foto3.webp; 3-3; Hisui-Arkani V; de; holo (zuerst als EN notiert, Foto zeigt deutschen Text: "Steinkugel")

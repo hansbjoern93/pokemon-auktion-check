@@ -23,6 +23,9 @@ from .tcgdex import Tcgdex, TcgdexFehler
 
 log = logging.getLogger("sync")
 
+# "tcgp" = Pokémon TCG Pocket: nur digitale Karten, auf eBay/Cardmarket nicht relevant.
+AUSGESCHLOSSENE_SERIEN = {"tcgp"}
+
 
 def _jetzt() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -211,16 +214,27 @@ async def sets_laden(api: Tcgdex, con: sqlite3.Connection, sprachen: list[str], 
         fortschritt.schritt()
 
     await asyncio.gather(*(eins(i, s) for i, s in detail_sprache.items()))
+    ausgeschlossen = ausgeschlossene_sets(con)
+    if ausgeschlossen:
+        print(f"  {len(ausgeschlossen)} digitale Sets (TCG Pocket) ausgeschlossen")
     con.commit()
-    return pro_sprache
+    return {sprache: [i for i in ids if i not in ausgeschlossen] for sprache, ids in pro_sprache.items()}
+
+
+def ausgeschlossene_sets(con: sqlite3.Connection) -> set[str]:
+    platzhalter = ", ".join("?" * len(AUSGESCHLOSSENE_SERIEN))
+    return {z[0] for z in con.execute(
+        f"SELECT id FROM sets WHERE serie_id IN ({platzhalter})", tuple(AUSGESCHLOSSENE_SERIEN))}
 
 
 async def texte_per_graphql(api: Tcgdex, con: sqlite3.Connection, sprache: str, seitengroesse: int) -> int:
+    ausgeschlossen = ausgeschlossene_sets(con)
     seite, anzahl = 1, 0
     while True:
         karten, roh = await api.karten_graphql(sprache, seite, seitengroesse)
         if roh > len(karten):
             print(f"  ! {roh - len(karten)} Karten ({sprache}, Seite {seite}) mit GraphQL-Fehler übersprungen")
+        karten = [k for k in karten if (k.get("set") or {}).get("id") not in ausgeschlossen]
         for k in karten:
             karte_speichern(con, sprache, k, basis_ueberschreiben=(sprache == "en"))
         con.commit()
@@ -272,7 +286,9 @@ async def preise_laden(api: Tcgdex, con: sqlite3.Connection, alle: bool, nur: se
                     ORDER BY t.sprache != 'en', t.sprache != 'de', t.sprache LIMIT 1) AS sprache
             FROM karten k {bedingung}"""
     ).fetchall()
-    auftraege = [(z["id"], z["sprache"] or "en") for z in zeilen if not nur or z["set_id"] in nur]
+    ausgeschlossen = ausgeschlossene_sets(con)
+    auftraege = [(z["id"], z["sprache"] or "en") for z in zeilen
+                 if (not nur or z["set_id"] in nur) and z["set_id"] not in ausgeschlossen]
     fortschritt = Fortschritt("Preise", len(auftraege))
     fehler_anzahl = 0
 
