@@ -17,7 +17,8 @@ nicht zur App.
 Voraussetzung: Python 3.10 oder neuer.
 
 ```bash
-cd pokemon_auktion
+git clone https://github.com/hansbjoern93/pokemon-auktion-check.git
+cd pokemon-auktion-check
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -64,10 +65,10 @@ Ab Schritt 4 macht die App das beim Start automatisch mit `--wenn-veraltet`. Wen
 unabhängig davon einplanen willst:
 
 - **macOS/Linux** (`crontab -e`, täglich 6:10 Uhr):
-  `10 6 * * * cd /PFAD/pokemon_auktion && .venv/bin/python -m pokeauktion.sync --wenn-veraltet`
+  `10 6 * * * cd /PFAD/pokemon-auktion-check && .venv/bin/python -m pokeauktion.sync --wenn-veraltet`
 - **Windows**: In der Aufgabenplanung eine einfache Aufgabe anlegen, täglich.
-  Programm: `C:\PFAD\pokemon_auktion\.venv\Scripts\python.exe`,
-  Argumente: `-m pokeauktion.sync --wenn-veraltet`, Starten in: `C:\PFAD\pokemon_auktion`.
+  Programm: `C:\PFAD\pokemon-auktion-check\.venv\Scripts\python.exe`,
+  Argumente: `-m pokeauktion.sync --wenn-veraltet`, Starten in: `C:\PFAD\pokemon-auktion-check`.
 
 Mit `--voll` lädst du alles neu, das ist sinnvoll nach einem neuen Set-Release. Mit `--alle-preise`
 fragst du auch Karten ab, für die TCGdex bisher keinen Cardmarket-Preis hatte.
