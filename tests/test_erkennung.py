@@ -164,3 +164,28 @@ def test_analyse_mit_falschem_claude_befehl(con, tmp_path):
                            Einstellungen(claude_modus="immer", claude_befehl=str(skript)))
     murkrow = [k.ergebnis for k in foto.karten if (k.ausschnitt.reihe, k.ausschnitt.spalte) == (2, 3)][0]
     assert murkrow.quelle == "claude" and [k.id for k in murkrow.karten] == ["sv04.5-181"]
+
+
+def test_gleicher_name_und_kp_mit_teilweise_gelesenen_attacken_zeigt_beide(con):
+    """Nur 'Hinterhalt' gelesen: alte und neue Kramurx-Karte sind beide möglich (bis der Bildvergleich entscheidet)."""
+    _karte(con, "xy4-51", "de", "Kramurx", 60, [("Hinterhalt", "10+"), ("Flügelschlag", "30")])
+    _karte(con, "me02-057", "de", "Kramurx", 60, [("Hinterhalt", "10+")])
+    con.commit()
+    merk = m(["kramurx"], [60], ["hinterhalt"])
+    e = erkenne_aus_merkmalen(con, Indizes.laden(con), merk, None, set())
+    assert sorted(k.id for k in e.karten) == ["me02-057", "xy4-51"] and e.sicherheit == "mittel"
+
+    def bildvergleich(bild, ids, sprache):
+        return ["me02-057"], "Bildvergleich eindeutig"
+    e = erkenne_aus_merkmalen(con, Indizes.laden(con), merk, None, set(), bildvergleich)
+    assert [k.id for k in e.karten] == ["me02-057"]
+
+
+def test_versionen_ohne_nullpreise_und_doppelte_produkte(con):
+    from pokeauktion.katalog import versionen
+    con.execute("UPDATE karten SET varianten = ?, varianten_detail = ? WHERE id = 'sv04.5-181'",
+                (json.dumps({"holo": True}), json.dumps([{"variantId": "holo", "type": "holo"}])))
+    for variante, produkt, trend, trend_holo in (("", 1, 3.39, 0), ("holo", 1, 3.39, 0)):
+        con.execute("INSERT INTO preise (karte_id, variante, id_produkt, trend, trend_holo, abgerufen) "
+                    "VALUES ('sv04.5-181', ?, ?, ?, ?, 'x')", (variante, produkt, trend, trend_holo))
+    assert [(v.bezeichnung, v.trend) for v in versionen(con, "sv04.5-181")] == [("Holo", 3.39)]

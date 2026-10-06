@@ -360,6 +360,14 @@ def erkenne_aus_merkmalen(con, indizes: Indizes, m: Merkmale, bild, hinweis_spra
         begruendung.append(f"{bester.attacken_treffer} Attacke(n) passen")
 
     ids = list(dict.fromkeys(k.karte_id for k in gruppe))
+    # Gleicher Name und gleiche KP, aber (teilweise) andere Attacken, z. B. weil nur eine Attacke
+    # lesbar war: auch diese Karten kommen in den Bildvergleich.
+    kp_bester = con.execute("SELECT kp FROM karten WHERE id = ?", (bester.karte_id,)).fetchone()["kp"]
+    for k in konkurrenz:
+        if k.name == bester.name and k.sprache == bester.sprache and k.karte_id not in ids:
+            if con.execute("SELECT kp FROM karten WHERE id = ?", (k.karte_id,)).fetchone()["kp"] == kp_bester:
+                ids.append(k.karte_id)
+    konkurrenz = [k for k in konkurrenz if k.karte_id not in ids]
     alle_ids = list(ids)
     ids, notiz = _nach_besonderheit(con, ids, besonderheit)
     if notiz:
@@ -382,11 +390,11 @@ def erkenne_aus_merkmalen(con, indizes: Indizes, m: Merkmale, bild, hinweis_spra
     else:
         sicherheit = "niedrig"
     if len(ids) > 1:
-        begruendung.append(f"{len(ids)} Drucke mit gleichem Text")
+        begruendung.append(f"{len(ids)} mögliche Drucke")
     if konkurrenz:
+        # Nie still auf eine Karte festlegen: ähnliche Karten immer mit anzeigen
         begruendung.append(f"{len(konkurrenz)} weitere ähnliche Karten")
-        if sicherheit == "niedrig":
-            ids += list(dict.fromkeys(k.karte_id for k in konkurrenz))[:4]
+        ids += [i for i in dict.fromkeys(k.karte_id for k in konkurrenz) if i not in ids][:4]
 
     karten = [k for i in ids if (k := lade_karte(con, i, bester.sprache))]
     ausgeschlossen = [k for i in alle_ids if i not in ids and (k := lade_karte(con, i, bester.sprache))]

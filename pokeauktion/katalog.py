@@ -56,27 +56,47 @@ def cardmarket_link(name_en: str, sprache: str = "de") -> str:
     return f"https://www.cardmarket.com/{sprache}/Pokemon/Products/Search?searchString={quote_plus(name_en)}"
 
 
+def _preis(wert) -> float | None:
+    """Cardmarket liefert 0 statt 'kein Preis', z. B. für eine Foil-Version, die es nicht gibt."""
+    return wert if wert and wert > 0 else None
+
+
+VARIANTEN_NAMEN = {"normal": "Standard", "holo": "Holo", "reverse": "Reverse Holo", "firstEdition": "1. Edition"}
+
+
 def versionen(con: sqlite3.Connection, karte_id: str) -> list[Version]:
     """Alle Druckversionen mit Cardmarket-Trendpreis.
 
     Zuordnung der Cardmarket-Felder: ohne Zusatz = Standardversion des Produkts
     (bei Holo-Rares die Holo-Karte), *_holo = Foil-Version (meist Reverse Holo).
+    Varianten, die auf dasselbe Cardmarket-Produkt zeigen, werden nicht doppelt aufgeführt.
     """
     k = con.execute("SELECT varianten, varianten_detail FROM karten WHERE id = ?", (karte_id,)).fetchone()
     varianten = json.loads(k["varianten"]) if k and k["varianten"] else {}
     detail = {d.get("variantId"): d for d in (json.loads(k["varianten_detail"]) if k and k["varianten_detail"] else [])}
+    zeilen = con.execute("SELECT * FROM preise WHERE karte_id = ? ORDER BY variante", (karte_id,)).fetchall()
     ergebnis: list[Version] = []
-    for p in con.execute("SELECT * FROM preise WHERE karte_id = ? ORDER BY variante", (karte_id,)):
-        if p["variante"] == "":
-            standard = "Holo" if varianten.get("holo") and not varianten.get("normal") else "Standard"
-            ergebnis.append(Version(standard, p["trend"], p["avg30"], p["low"]))
-            if p["trend_holo"] is not None or varianten.get("reverse"):
-                ergebnis.append(Version("Reverse Holo / Foil", p["trend_holo"], p["avg30_holo"], p["low_holo"]))
-        else:
-            d = detail.get(p["variante"], {})
-            teile = [d.get("type"), d.get("subtype"), ", ".join(d.get("stamp") or []) or None]
-            name = " ".join(t for t in teile if t) or p["variante"]
-            ergebnis.append(Version(name, p["trend"], p["avg30"], p["low"]))
+    gesehen: set = set()
+    for p in zeilen:
+        if p["variante"] != "":
+            continue
+        gesehen.add(p["id_produkt"])
+        standard = "Holo" if varianten.get("holo") and not varianten.get("normal") else "Standard"
+        if _preis(p["trend"]) is not None:
+            ergebnis.append(Version(standard, _preis(p["trend"]), _preis(p["avg30"]), _preis(p["low"])))
+        # Foil-Preis nur, wenn es laut TCGdex einen Reverse-Druck gibt (oder die Varianten unbekannt sind)
+        if _preis(p["trend_holo"]) is not None and (varianten.get("reverse") or not varianten):
+            ergebnis.append(Version("Reverse Holo / Foil", _preis(p["trend_holo"]), _preis(p["avg30_holo"]),
+                                    _preis(p["low_holo"])))
+    for p in zeilen:
+        if p["variante"] == "" or p["id_produkt"] in gesehen or _preis(p["trend"]) is None:
+            continue
+        gesehen.add(p["id_produkt"])
+        d = detail.get(p["variante"], {})
+        teile = [VARIANTEN_NAMEN.get(d.get("type"), d.get("type")), d.get("subtype"),
+                 ", ".join(d.get("stamp") or []) or None]
+        name = " ".join(t for t in teile if t) or p["variante"]
+        ergebnis.append(Version(name, _preis(p["trend"]), _preis(p["avg30"]), _preis(p["low"])))
     return ergebnis
 
 
