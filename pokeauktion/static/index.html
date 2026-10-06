@@ -204,10 +204,20 @@ function zeigen(d) {
     if (el) el.innerHTML = liste.filter(a => a.status === "fehler").map(a => `${esc(a.karte_id)}: ${esc(a.meldung)}`).join("<br>");
   });
   $("#holen").onclick = async () => {
-    const r = await (await fetch(`/api/auswertung/${d.id}/holen`, {method:"POST"})).json();
-    if (!r.anzahl) { alert("Alle Preise aus Deutschland sind schon aktuell (höchstens 3 Tage alt)."); return; }
-    window.open(r.erste_url, "_blank");
-    wartenBis = Date.now() + 30 * 60 * 1000; abfragen();
+    // Tab sofort beim Klick öffnen, sonst hält Chrome ihn für ein Pop-up und blockiert ihn
+    const tab = window.open("about:blank", "_blank");
+    const melden = text => { $("#fortschritt").innerHTML = `<span class="fehler">${esc(text)}</span>`; };
+    if (!tab) { melden("Chrome hat den neuen Tab blockiert. Bitte oben rechts in der Adresszeile auf das Pop-up-Symbol klicken und „Pop-ups immer zulassen“ wählen, dann noch einmal klicken."); return; }
+    tab.document.write("<p style='font:18px system-ui;padding:2rem'>Cardmarket wird geöffnet …</p>");
+    try {
+      const antwort = await fetch(`/api/auswertung/${d.id}/holen`, {method:"POST"});
+      const r = await antwort.json();
+      if (!antwort.ok) throw new Error(r.detail || `Fehler ${antwort.status}`);
+      if (!r.anzahl) { tab.close(); melden("Alle Preise aus Deutschland sind schon aktuell (höchstens 3 Tage alt)."); return; }
+      tab.location.href = r.erste_url;
+      $("#fortschritt").textContent = `Hole Preise aus Deutschland … 0 von ${r.anzahl}. Im neuen Tab sollte oben ein blauer Balken erscheinen.`;
+      wartenBis = Date.now() + 30 * 60 * 1000; setTimeout(abfragen, 3000);
+    } catch (e) { tab.close(); melden("Preise holen fehlgeschlagen: " + e.message); }
   };
   document.querySelectorAll("[data-setzen]").forEach(b => b.onclick = () => {
     const feld = document.querySelector(`[data-preis="${b.dataset.setzen}"]`);

@@ -70,8 +70,15 @@ def neue_auswertung(con, indizes: Indizes, dateien: list[tuple[str, bytes]], ord
                     einstellungen: Einstellungen) -> str:
     vorbereiten(con)
     pruef = hashlib.sha1(b"".join(inhalt for _, inhalt in dateien)).hexdigest()[:16]
-    if con.execute("SELECT 1 FROM auswertungen WHERE id = ?", (pruef,)).fetchone():
-        return pruef  # schon ausgewertet: nicht noch einmal rechnen (und kein Claude-Kontingent verbrauchen)
+    alt = con.execute("SELECT fotos FROM auswertungen WHERE id = ?", (pruef,)).fetchone()
+    if alt:
+        fotos_da = all((ordner / pruef / f["datei"]).exists() for f in json.loads(alt["fotos"]))
+        if fotos_da:
+            return pruef  # schon ausgewertet: nicht noch einmal rechnen (und kein Claude-Kontingent verbrauchen)
+        # Fotos wurden gelöscht: alte Auswertung verwerfen und neu auswerten
+        con.execute("DELETE FROM auswertungen WHERE id = ?", (pruef,))
+        con.execute("DELETE FROM korrekturen WHERE auswertung = ?", (pruef,))
+        con.execute("DELETE FROM auftraege WHERE auswertung = ?", (pruef,))
     (ordner / pruef).mkdir(parents=True, exist_ok=True)
     fotos, zeilen = [], []
     for i, (name, inhalt) in enumerate(dateien, 1):

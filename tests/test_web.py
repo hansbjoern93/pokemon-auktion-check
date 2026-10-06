@@ -120,6 +120,14 @@ def test_foto_bis_fester_gesamtwert(client):
     murkrow = next(z for z in d["zeilen"] if z["zeile"] == murkrow["zeile"])
     assert murkrow["wert"] == 2.5 and murkrow["wert_quelle"] == "hand"
 
+    # Fotos gelöscht (z. B. Ordner data/auswertungen entfernt): gleiches Foto wird neu ausgewertet
+    import shutil
+    from pokeauktion import web
+    shutil.rmtree(web.UPLOADS / d["id"])
+    with open(TESTFOTOS / "foto3.webp", "rb") as f:
+        neu = client.post("/api/auswerten", files=[("fotos", ("foto3.webp", f.read(), "image/webp"))]).json()
+    assert neu["id"] == d["id"] and client.get(f"/fotos/{d['id']}/foto01.jpg").status_code == 200
+
     # Seite und Fotos werden ausgeliefert
     assert "Pokémon-Karten-Check" in client.get("/").text
     assert client.get(f"/fotos/{d['id']}/foto01.jpg").status_code == 200
