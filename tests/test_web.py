@@ -36,12 +36,9 @@ def test_erster_preis_unter_der_tabelle_nicht_ab_preis():
     assert preise_de.erster_preis("ab 1,49 € ohne Tabelle") is None
 
 
-def test_filter_und_lesezeichen():
+def test_filter():
     assert preise_de.filter_aktiv("https://www.cardmarket.com/de/Pokemon/Products/Singles/X/Y?sellerCountry=7&minCondition=4")
     assert not preise_de.filter_aktiv("https://www.cardmarket.com/de/Pokemon/Products/Singles/X/Y")
-    code = preise_de.lesezeichen("http://127.0.0.1:8000")
-    assert code.startswith("javascript:") and "http://127.0.0.1:8000/uebernehmen" in code
-    assert "sellerCountry" in code and "Produktinfo" in code
 
 
 @pytest.fixture
@@ -86,25 +83,42 @@ def test_foto_bis_fester_gesamtwert(client):
     murkrow = next(z for z in d["zeilen"] if z["zeile"] == murkrow["zeile"])
     assert murkrow["wert"] == 1.10 and murkrow["von_hand"]
 
-    # Lesezeichen: ohne vorher "öffnen" -> Hinweis
-    url = "https://www.cardmarket.com/de/Pokemon/Products/Singles/Paldean-Fates/Murkrow?sellerCountry=7&minCondition=4"
-    assert "Keine Karte ausgewählt" in client.get("/uebernehmen", params={"url": url, "text": SEITE}).text
-    client.post(f"/api/auswertung/{d['id']}/oeffnen/{murkrow['zeile']}")
-    ohne_filter = client.get("/uebernehmen", params={"url": url.split("?")[0], "text": SEITE}).text
-    assert "nicht auf Deutschland" in ohne_filter
-    antwort = client.get("/uebernehmen", params={"url": url, "text": SEITE}).text
-    assert "1,99 €" in antwort and "Murkrow" in antwort
+    # Erweiterung: Aufträge anlegen (je möglichem Druck einer, ohne von Hand gewählte Karten doppelt)
+    start = client.post(f"/api/auswertung/{d['id']}/holen").json()
+    assert start["anzahl"] >= 2 and "#pka=" in start["erste_url"] and "sellerCountry=7" in start["erste_url"]
+    auftrag_id = int(start["erste_url"].split("#pka=")[1])
+    a = client.get(f"/api/auftrag/{auftrag_id}").json()
+    assert a["kuerzel"] == "" or a["kuerzel"]  # Testdaten haben keine Set-Kürzel
+    # ungefilterte Seite wird abgelehnt, gefilterte Seite liefert den ersten Preis unter "Produktinfo"
+    url = "https://www.cardmarket.com/de/Pokemon/Products/Singles/X/Y?sellerCountry=7&minCondition=4"
+    r = client.post(f"/api/auftrag/{auftrag_id}/ergebnis", json={"url": url.split("?")[0], "text": SEITE}).json()
+    assert r["fehler"] and r["naechste_url"]
+    # alle offenen Aufträge abarbeiten wie die Erweiterung
+    while (naechste := r["naechste_url"]):
+        auftrag_id = int(naechste.split("#pka=")[1])
+        r = client.post(f"/api/auftrag/{auftrag_id}/ergebnis", json={"url": url, "text": SEITE}).json()
+        assert r["preis"] == 1.99
+    assert r["app_url"].endswith(f"/#{d['id']}")
+    # die abgelehnte Karte wird beim nächsten Klick auf "holen" erneut versucht
+    nochmal = client.post(f"/api/auswertung/{d['id']}/holen").json()
+    assert nochmal["anzahl"] == 1
+    r = client.post(f"/api/auftrag/{int(nochmal['erste_url'].split('#pka=')[1])}/ergebnis",
+                    json={"url": url, "text": SEITE}).json()
+    assert r["preis"] == 1.99 and r["naechste_url"] is None
 
     d = client.get(f"/api/auswertung/{d['id']}").json()
     murkrow = next(z for z in d["zeilen"] if z["zeile"] == murkrow["zeile"])
     assert murkrow["wert"] == 1.99 and murkrow["wert_quelle"] == "de"
-    assert d["mit_de_preis"] == 1
+    assert d["auftraege"]["fertig"] >= 1 and d["mit_de_preis"] >= 1
     assert d["summe"] == round(sum(z["wert"] or 0 for z in d["zeilen"] if z["erkannt"]), 2)
+    # nochmal holen: alles aktuell, keine neuen Aufträge
+    assert client.post(f"/api/auswertung/{d['id']}/holen").json()["anzahl"] == 0
 
     # Preis von Hand überschreiben
     d = client.post(f"/api/auswertung/{d['id']}/korrektur",
                     json={"zeile": murkrow["zeile"], "preis_de": 2.5, "preis_aendern": True}).json()
-    assert next(z for z in d["zeilen"] if z["zeile"] == murkrow["zeile"])["wert"] == 2.5
+    murkrow = next(z for z in d["zeilen"] if z["zeile"] == murkrow["zeile"])
+    assert murkrow["wert"] == 2.5 and murkrow["wert_quelle"] == "hand"
 
     # Seite und Fotos werden ausgeliefert
     assert "Pokémon-Karten-Check" in client.get("/").text

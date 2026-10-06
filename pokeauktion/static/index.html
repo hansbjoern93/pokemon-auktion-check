@@ -33,10 +33,9 @@
   .marke { display:inline-block; font-size:12px; padding:1px 7px; border-radius:10px; font-weight:600; }
   .hoch { background:#e6f4ea; color:var(--gruen); } .mittel { background:#fdf3e1; color:var(--gelb); }
   .niedrig, .nicht { background:#fdecec; color:var(--rot); }
-  .q-de { background:var(--de); color:var(--gruen); } .q-ab, .q-trend { background:var(--vorl); color:var(--gelb); }
+  .q-de, .q-hand { background:var(--de); color:var(--gruen); } .q-ab, .q-trend { background:var(--vorl); color:var(--gelb); }
   .aktion { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
   .aktion input { width:90px; }
-  .lesezeichen { display:inline-block; padding:8px 14px; border:2px dashed var(--blau); border-radius:8px; font-weight:700; color:var(--blau); text-decoration:none; }
   .fehler { color:var(--rot); font-weight:600; }
   .alt { margin-top:6px; font-size:13px; }
   details summary { cursor:pointer; font-weight:600; }
@@ -61,15 +60,15 @@
 
   <section class="box">
     <details id="lzbox">
-      <summary>Einmalig einrichten: Lesezeichen „Preis an App“</summary>
+      <summary>Einmalig einrichten: Browser-Erweiterung für Preise aus Deutschland (Chrome oder Edge)</summary>
       <ol>
-        <li>Ziehe diesen Knopf mit der Maus in deine Lesezeichenleiste (Strg + Umschalt + B blendet sie ein):
-          <a id="lesezeichen" class="lesezeichen" href="#">Preis an App</a></li>
-        <li>In der Tabelle unten bei einer Karte auf <b>„Auf Cardmarket öffnen“</b> klicken und dort die richtige Karte anklicken.</li>
-        <li>Auf der Kartenseite das Lesezeichen anklicken: Beim ersten Mal setzt es den Filter <b>Deutschland, ab Good</b>.
-            Nach dem Laden <b>noch einmal anklicken</b>: Der erste Preis wird übernommen.</li>
+        <li>In Chrome <code>chrome://extensions</code> öffnen (in Edge <code>edge://extensions</code>).</li>
+        <li>Oben rechts den <b>Entwicklermodus</b> einschalten.</li>
+        <li>Auf <b>„Entpackte Erweiterung laden“</b> klicken und den Ordner <code>erweiterung</code> aus dem Projektordner auswählen.</li>
       </ol>
-      <div class="leise">Das Lesezeichen liest nur die Seite, die du gerade selbst ansiehst. Es ruft nichts automatisch ab.</div>
+      <div class="leise">Die Erweiterung tut nur etwas, wenn du hier auf „Preise aus Deutschland holen“ klickst. Sie öffnet dann in deinem
+        Browser nacheinander die Cardmarket-Seiten der Karten (Filter: Verkäufer aus Deutschland, Zustand ab Good), liest den ersten
+        Preis und kehrt am Ende hierher zurück. Erscheint eine Cloudflare-Prüfung, bestätige sie einfach; danach geht es weiter.</div>
     </details>
   </section>
 
@@ -87,8 +86,6 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;
 const SPRACHEN = {de:"Deutsch", en:"Englisch", fr:"Französisch", it:"Italienisch", es:"Spanisch", pt:"Portugiesisch",
   ja:"Japanisch", ko:"Koreanisch", "zh-cn":"Chinesisch", "zh-tw":"Chinesisch (trad.)", id:"Indonesisch", th:"Thai"};
 let aktuell = null, wartenBis = 0;
-
-fetch("/api/lesezeichen").then(r => r.json()).then(d => { $("#lesezeichen").href = d.code; });
 fetch("/api/auswertungen").then(r => r.json()).then(liste => {
   if (!liste.length) return;
   $("#frueher").innerHTML = "Frühere Auswertungen: " + liste.slice(0, 8).map(a =>
@@ -113,8 +110,12 @@ $("#formular").onsubmit = async ev => {
 
 async function laden(id) {
   const r = await fetch(`/api/auswertung/${id}`);
-  if (r.ok) zeigen(await r.json());
+  if (!r.ok) return;
+  const d = await r.json();
+  zeigen(d);
+  if ((d.auftraege || {}).offen) { wartenBis = Date.now() + 30 * 60 * 1000; abfragen(); }
 }
+window.addEventListener("hashchange", () => location.hash.length > 1 && laden(location.hash.slice(1)));
 
 async function senden(zeile, daten) {
   const r = await fetch(`/api/auswertung/${aktuell.id}/korrektur`, {method:"POST",
@@ -124,7 +125,8 @@ async function senden(zeile, daten) {
 
 function wertZelle(z) {
   if (!z.erkannt) return "–";
-  const q = {de:"aus DE", ab:"vorläufig", trend:"vorläufig (Trend)", keiner:"kein Preis"}[z.wert_quelle];
+  const q = {de: z.de_vollstaendig ? "aus DE" : "aus DE (teilweise)", hand:"von Hand", ab:"vorläufig",
+             trend:"vorläufig (Trend)", keiner:"kein Preis"}[z.wert_quelle];
   return `${euro(z.wert)}<br><span class="marke q-${z.wert_quelle}">${q}</span>`;
 }
 
@@ -153,12 +155,11 @@ function aktionZelle(z) {
   const auswahl = optionen || andere
     ? `<select data-wahl="${z.zeile}"><option value="">${optionen ? "Druck wählen …" : "Andere Möglichkeit …"}</option>${optionen}${andere}</select>` : "";
   return `<div class="aktion">
-    ${z.cardmarket ? `<button data-oeffnen="${z.zeile}" data-link="${esc(z.cardmarket)}">Auf Cardmarket öffnen</button>` : ""}
+    ${z.cardmarket ? `<a class="knopf zweit" href="${esc(z.cardmarket)}" target="_blank" rel="noopener">Cardmarket</a>` : ""}
     <input type="number" step="0.01" min="0" placeholder="Preis €" data-preis="${z.zeile}">
     <button class="zweit" data-setzen="${z.zeile}">Übernehmen</button>
     ${auswahl}
     <button class="zweit" data-suchen="${z.zeile}">Andere Karte …</button>
-    ${z.wartet_auf_preis ? '<span class="leise">wartet auf Lesezeichen …</span>' : ""}
   </div>`;
 }
 
@@ -179,9 +180,14 @@ function zeigen(d) {
       <td><span class="marke ${z.erkannt ? z.sicherheit : "nicht"}">${z.erkannt ? z.sicherheit : "nicht erkannt"}</span></td>
       <td class="wert">${wertZelle(z)}</td>
       <td>${aktionZelle(z)}</td></tr>`).join("");
+  const au = d.auftraege || {}, offen = au.offen || 0, fertig = au.fertig || 0, fehler = au.fehler || 0;
+  const fortschritt = offen ? `Hole Preise aus Deutschland … ${fertig + fehler} von ${offen + fertig + fehler}` :
+    (fertig || fehler ? `Preise aus Deutschland: ${fertig} geholt${fehler ? `, ${fehler} nicht gefunden` : ""}` : "");
   $("#ergebnis").innerHTML = `
     <section class="box summe">
       <div><div class="leise">Gesamtwert (fest)</div><div class="gross">${euro(d.summe)}</div></div>
+      <div><button id="holen">Preise aus Deutschland holen</button>
+        <div class="leise" id="fortschritt">${esc(fortschritt)}</div></div>
       <div>${d.anzahl - d.nicht_erkannt} Karten erkannt · <b>${d.mit_de_preis}</b> mit Preis aus Deutschland ·
         ${d.anzahl - d.nicht_erkannt - d.mit_de_preis - d.ohne_preis} vorläufig${d.ohne_preis ? ` · ${d.ohne_preis} ohne Preis` : ""}
         · <b>${d.nicht_erkannt}</b> nicht erkannt</div>
@@ -192,11 +198,12 @@ function zeigen(d) {
       <table><thead><tr><th>Nr.</th><th class="breit"></th><th>Karte</th><th class="breit">Sprache</th><th>Sicherheit</th><th style="text-align:right">Wert</th><th>Aktionen</th></tr></thead>
       <tbody>${zeilen}</tbody></table></section>`;
 
-  document.querySelectorAll("[data-oeffnen]").forEach(b => b.onclick = async () => {
-    await fetch(`/api/auswertung/${d.id}/oeffnen/${b.dataset.oeffnen}`, {method:"POST"});
-    window.open(b.dataset.link, "_blank");
-    wartenBis = Date.now() + 10 * 60 * 1000; abfragen();
-  });
+  $("#holen").onclick = async () => {
+    const r = await (await fetch(`/api/auswertung/${d.id}/holen`, {method:"POST"})).json();
+    if (!r.anzahl) { alert("Alle Preise aus Deutschland sind schon aktuell (höchstens 3 Tage alt)."); return; }
+    window.open(r.erste_url, "_blank");
+    wartenBis = Date.now() + 30 * 60 * 1000; abfragen();
+  };
   document.querySelectorAll("[data-setzen]").forEach(b => b.onclick = () => {
     const feld = document.querySelector(`[data-preis="${b.dataset.setzen}"]`);
     const wert = feld.value === "" ? null : parseFloat(feld.value.replace(",", "."));
@@ -223,8 +230,8 @@ async function abfragen() {
   const r = await fetch(`/api/auswertung/${aktuell.id}`);
   if (r.ok) {
     const d = await r.json();
-    const vorher = JSON.stringify(aktuell.zeilen.map(z => [z.wert, z.wert_quelle]));
-    if (vorher !== JSON.stringify(d.zeilen.map(z => [z.wert, z.wert_quelle]))) { zeigen(d); wartenBis = 0; return; }
+    zeigen(d);
+    if (!(d.auftraege || {}).offen) { wartenBis = 0; return; }
   }
   setTimeout(abfragen, 3000);
 }

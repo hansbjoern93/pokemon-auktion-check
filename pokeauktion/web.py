@@ -1,7 +1,6 @@
 """Weboberfläche (FastAPI). Start: python start.py"""
 from __future__ import annotations
 
-import html
 from functools import lru_cache
 from pathlib import Path
 
@@ -42,11 +41,6 @@ def einstellungen() -> Einstellungen:
 @app.get("/", response_class=HTMLResponse)
 def startseite():
     return (STATIC / "index.html").read_text(encoding="utf-8")
-
-
-@app.get("/api/lesezeichen")
-def lesezeichen(request: Request):
-    return {"code": preise_de.lesezeichen(str(request.base_url).rstrip("/"))}
 
 
 @app.post("/api/auswerten")
@@ -100,10 +94,38 @@ def korrektur(auswertung_id: str, k: Korrektur):
     return sammlung.ergebnis(c, auswertung_id)
 
 
-@app.post("/api/auswertung/{auswertung_id}/oeffnen/{zeile}")
-def oeffnen(auswertung_id: str, zeile: str):
-    sammlung.oeffnen_merken(con(), auswertung_id, zeile)
-    return {"ok": True}
+def app_url(request: Request) -> str:
+    return str(request.base_url).rstrip("/")
+
+
+@app.post("/api/auswertung/{auswertung_id}/holen")
+def preise_holen(auswertung_id: str, request: Request):
+    """Aufträge für die Browser-Erweiterung anlegen; die Seite öffnet danach die erste Cardmarket-Adresse."""
+    return sammlung.auftraege_anlegen(con(), auswertung_id, app_url(request))
+
+
+@app.get("/api/auswertung/{auswertung_id}/auftraege")
+def auftraege(auswertung_id: str):
+    return sammlung.auftraege_liste(con(), auswertung_id)
+
+
+@app.get("/api/auftrag/{auftrag_id}")
+def auftrag(auftrag_id: int):
+    a = sammlung.auftrag(con(), auftrag_id)
+    if not a:
+        raise HTTPException(404, "Auftrag unbekannt")
+    return a
+
+
+class AuftragErgebnis(BaseModel):
+    url: str = ""
+    text: str = ""
+    fehler: str | None = None
+
+
+@app.post("/api/auftrag/{auftrag_id}/ergebnis")
+def auftrag_ergebnis(auftrag_id: int, e: AuftragErgebnis, request: Request):
+    return sammlung.auftrag_ergebnis(con(), auftrag_id, e.url, e.text, e.fehler, app_url(request))
 
 
 @app.get("/api/suche")
@@ -111,19 +133,3 @@ def kartensuche(q: str, kp: int | None = None):
     return [{"id": k.id, "name": k.name, "sprache": k.sprache, "set": k.set_name or k.set_id,
              "nummer": k.nummer, "seltenheit": k.seltenheit, "bild": k.bild_url, "ab": k.preis_min_ab}
             for k in suche(con(), q, kp=kp, limit=25)]
-
-
-@app.get("/uebernehmen", response_class=HTMLResponse)
-def uebernehmen(url: str = "", text: str = ""):
-    """Ziel des Lesezeichens. Antwortet mit einer kleinen Seite, die sich selbst schließt."""
-    erg = sammlung.preis_uebernehmen(con(), url, text)
-    if erg["ok"]:
-        preis = f"{erg['preis']:.2f}".replace(".", ",")
-        botschaft = f"✅ {html.escape(erg['karte'])}: <b>{preis} €</b> übernommen."
-        skript = "<script>setTimeout(()=>window.close(),2500)</script>"
-    else:
-        botschaft = "⚠️ " + html.escape(erg["meldung"])
-        skript = ""
-    return f"""<!doctype html><html lang="de"><meta charset="utf-8"><title>Preis übernehmen</title>
-<body style="font:18px system-ui;padding:2rem;background:#f6f7fb">{botschaft}
-<p style="color:#666;font-size:14px">Dieses Fenster kannst du schließen.</p>{skript}</body></html>"""

@@ -1,5 +1,5 @@
-"""Genaue Preise aus Deutschland: werden über das Lesezeichen "Preis an App" aus der Cardmarket-Seite
-übernommen, die du selbst in deinem Browser geöffnet hast (kein automatischer Abruf).
+"""Genaue Preise aus Deutschland: die Browser-Erweiterung (Ordner erweiterung/) öffnet in deinem
+Chrome nacheinander die Cardmarket-Seiten der Karten und schickt den Seitentext an die App.
 
 Die Cardmarket-Seite wird mit den Filtern sellerCountry=7 (Deutschland) und minCondition=4
 (Zustand Good oder besser) geöffnet. Die Angebote sind nach Preis aufsteigend sortiert, das erste
@@ -75,27 +75,3 @@ def gespeichert(con: sqlite3.Connection, karte_id: str) -> float | None:
     if datetime.fromisoformat(z["zeit"]) < datetime.now(timezone.utc) - timedelta(days=GUELTIG_TAGE):
         return None
     return z["preis"]
-
-
-def lesezeichen(app_url: str) -> str:
-    """JavaScript für das Lesezeichen. Läuft nur, wenn du es auf der geöffneten Cardmarket-Seite anklickst.
-
-    1. Klick ohne Filter: setzt die Filter Deutschland / ab Good und lädt die Seite neu.
-    2. Klick mit Filter: schickt Adresse und den Text ab der Angebotstabelle an die App.
-    """
-    filter_js = ";".join(f"u.searchParams.set('{k}','{v}')" for k, v in FILTER.items())
-    pruefung = "||".join(f"u.searchParams.get('{k}')!=='{v}'" for k, v in FILTER.items())
-    koepfe = ",".join(f"'{k}'" for k in TABELLENKOPF)
-    js = (
-        "(()=>{const u=new URL(location.href);"
-        "if(!/cardmarket\\.com$/.test(u.hostname)){alert('Bitte auf einer Cardmarket-Kartenseite anklicken.');return}"
-        f"if({pruefung}){{{filter_js};"
-        "alert('Filter Deutschland / ab Good wird gesetzt. Nach dem Laden bitte noch einmal klicken.');"
-        "location.href=u.toString();return}"
-        "const t=document.body.innerText;let i=-1;"
-        f"for(const k of [{koepfe}]){{const j=t.indexOf(k);if(j>=0&&(i<0||j<i))i=j}}"
-        "const a=t.slice(Math.max(0,i),Math.max(0,i)+1200);"
-        f"window.open('{app_url}/uebernehmen?url='+encodeURIComponent(location.href)+'&text='+encodeURIComponent(a),'_blank')"
-        "})()"
-    )
-    return "javascript:" + js

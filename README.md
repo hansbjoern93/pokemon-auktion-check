@@ -4,7 +4,7 @@ Lokale Web-App, die eBay-Auktionen mit Pokémon-Karten auswertet: Sie erkennt di
 Fotos und zeigt den Cardmarket-Trendpreis jeder Karte sowie die Summe als Spanne.
 
 > **Stand:** Kartendatenbank, Erkennung und Weboberfläche mit festem Gesamtwert (Preise aus
-> Deutschland per Lesezeichen) sind fertig. Die eBay-Anbindung folgt.
+> Deutschland über eine Browser-Erweiterung) sind fertig. Die eBay-Anbindung folgt.
 
 ## Schnellstart
 
@@ -15,30 +15,32 @@ Beim ersten Start wird alles eingerichtet und die Kartendatenbank geladen (einma
 Minuten). Danach öffnet sich die App im Browser unter http://127.0.0.1:8000. Beenden mit Strg + C
 im schwarzen Fenster.
 
+### Einmalig: Browser-Erweiterung installieren (Chrome oder Edge)
+
+1. `chrome://extensions` öffnen (Edge: `edge://extensions`).
+2. Oben rechts den **Entwicklermodus** einschalten.
+3. **„Entpackte Erweiterung laden“** und den Ordner `erweiterung` aus dem Projektordner wählen.
+
 ### So kommst du zum festen Gesamtwert
 
-1. **Foto einlesen** und auf „Auswerten“ klicken. Die App erkennt die Karten und zeigt sofort
-   einen **vorläufigen** Wert: den billigsten „ab“-Preis auf Cardmarket. Ist der Druck unsicher,
-   zählt immer der billigste mögliche Druck.
-2. **Lesezeichen einmalig einrichten:** Ziehe den Knopf „Preis an App“ (auf der Seite unter
-   „Einmalig einrichten“) in die Lesezeichenleiste deines Browsers.
-3. **Pro Karte, die sich lohnt:** Klicke auf „Auf Cardmarket öffnen“ und wähle dort die richtige
-   Karte. Klicke dann auf das Lesezeichen: Beim ersten Klick setzt es den Filter **Deutschland, ab
-   Zustand Good**, nach dem Laden übernimmt ein zweiter Klick den **ersten (billigsten) Preis**.
-   Die Summe aktualisiert sich von selbst.
-4. Du kannst jeden Preis auch von Hand eintragen und eine falsch erkannte Karte korrigieren
-   („Druck wählen“ oder „Andere Karte …“).
+1. **Foto einlesen** und „Auswerten“ klicken. Die App erkennt die Karten und zeigt sofort einen
+   **vorläufigen** Wert (billigster „ab“-Preis auf Cardmarket, alle Länder).
+2. **„Preise aus Deutschland holen“** klicken. In einem neuen Tab öffnet die Erweiterung
+   nacheinander für jede Karte (bei unsicherem Druck: für jeden möglichen Druck) die Cardmarket-Seite
+   mit dem Filter **Verkäufer aus Deutschland, Zustand ab Good**, liest den **ersten Preis** und geht
+   weiter. Am Ende springt der Tab zur App zurück.
+3. Der Wert jeder Karte ist dann der Preis aus Deutschland; bei mehreren möglichen Drucken der
+   billigste. Die Summe ist ein fester Betrag.
+4. Du kannst jeden Preis auch von Hand eintragen und eine falsch erkannte Karte korrigieren.
 
-Das Lesezeichen liest nur die Seite, die du selbst geöffnet hast. Es gibt keinen automatischen
-Abruf und kein Scraping. Ein übernommener Preis gilt 3 Tage und wird auch in anderen Auswertungen
-für dieselbe Karte genutzt. Konnte das Lesezeichen keinen Preis finden, steht der gelesene Text in
-`data/letzter_cardmarket_text.txt`.
-
-Hinweis: Die Preise sind Cardmarket-**Trendwerte** und gelten für gut erhaltene Karten. Der Zustand
-beeinflusst den Preis stark. Zustandsbewertung, Echtheitsprüfung und automatisches Bieten gehören
-nicht zur App.
-
----
+Hinweise:
+- Die Erweiterung arbeitet nur, wenn du den Knopf in der App drückst, mit Pausen zwischen den
+  Seiten. Erscheint eine Cloudflare-Prüfung, bestätige sie; danach geht es weiter.
+- Automatisches Auslesen ist laut Cardmarket-Nutzungsbedingungen nicht erlaubt. Die Nutzung erfolgt
+  auf eigenes Risiko; bei wenigen Abfragen am Tag ist das Risiko gering.
+- Ein geholter Preis gilt 3 Tage und wird auch für andere Fotos mit derselben Karte genutzt.
+- Wird eine Karte auf Cardmarket nicht gefunden, bleibt der vorläufige Wert stehen. Wenn kein
+  Preis gelesen werden konnte, steht der Seitentext in `data/letzter_cardmarket_text.txt`.
 
 ## Einrichtung
 

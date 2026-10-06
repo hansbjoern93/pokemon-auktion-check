@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Pokémon-Karten-Check: Preise aus Deutschland",
+  "version": "1.0",
+  "description": "Liest auf Cardmarket den ersten Preis bei Verkäufern aus Deutschland (ab Zustand Good) und schickt ihn an die lokale App. Arbeitet nur, wenn du in der App „Preise aus Deutschland holen“ startest.",
+  "permissions": [],
+  "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [{
+    "matches": ["https://www.cardmarket.com/*"],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }]
+}
