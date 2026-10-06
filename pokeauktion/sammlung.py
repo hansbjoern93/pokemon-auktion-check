@@ -218,7 +218,10 @@ def auftrag(con, auftrag_id: int) -> dict | None:
         return None
     k = con.execute("SELECT k.nummer, s.kuerzel FROM karten k LEFT JOIN sets s ON s.id = k.set_id WHERE k.id = ?",
                     (z["karte_id"],)).fetchone()
-    return {"id": z["id"], "karte_id": z["karte_id"], "status": z["status"], "name": _englischer_name(con, z["karte_id"]),
+    offen = con.execute("SELECT COUNT(*) FROM auftraege WHERE auswertung = ? AND status = 'offen'",
+                        (z["auswertung"],)).fetchone()[0]
+    return {"id": z["id"], "karte_id": z["karte_id"], "status": z["status"], "offen": offen,
+            "name": _englischer_name(con, z["karte_id"]),
             "kuerzel": (k["kuerzel"] if k else None) or "", "nummer": (k["nummer"] if k else "") or ""}
 
 

@@ -187,7 +187,8 @@ function zeigen(d) {
     <section class="box summe">
       <div><div class="leise">Gesamtwert (fest)</div><div class="gross">${euro(d.summe)}</div></div>
       <div><button id="holen">Preise aus Deutschland holen</button>
-        <div class="leise" id="fortschritt">${esc(fortschritt)}</div></div>
+        <div class="leise" id="fortschritt">${esc(fortschritt)}</div>
+        ${fehler ? `<details class="leise"><summary>Was nicht geklappt hat</summary><div id="fehlerliste"></div></details>` : ""}</div>
       <div>${d.anzahl - d.nicht_erkannt} Karten erkannt · <b>${d.mit_de_preis}</b> mit Preis aus Deutschland ·
         ${d.anzahl - d.nicht_erkannt - d.mit_de_preis - d.ohne_preis} vorläufig${d.ohne_preis ? ` · ${d.ohne_preis} ohne Preis` : ""}
         · <b>${d.nicht_erkannt}</b> nicht erkannt</div>
@@ -198,6 +199,10 @@ function zeigen(d) {
       <table><thead><tr><th>Nr.</th><th class="breit"></th><th>Karte</th><th class="breit">Sprache</th><th>Sicherheit</th><th style="text-align:right">Wert</th><th>Aktionen</th></tr></thead>
       <tbody>${zeilen}</tbody></table></section>`;
 
+  if (fehler) fetch(`/api/auswertung/${d.id}/auftraege`).then(r => r.json()).then(liste => {
+    const el = $("#fehlerliste");
+    if (el) el.innerHTML = liste.filter(a => a.status === "fehler").map(a => `${esc(a.karte_id)}: ${esc(a.meldung)}`).join("<br>");
+  });
   $("#holen").onclick = async () => {
     const r = await (await fetch(`/api/auswertung/${d.id}/holen`, {method:"POST"})).json();
     if (!r.anzahl) { alert("Alle Preise aus Deutschland sind schon aktuell (höchstens 3 Tage alt)."); return; }

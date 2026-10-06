@@ -24,3 +24,11 @@ const seite = "ab 6,90 €\nVerkäuferstatus\nProduktinfo\nAngebot\nR0NIN\nGD\n8
 assert.ok(e.angebotsText(seite).startsWith("Produktinfo") && !e.angebotsText(seite).includes("6,90"));
 assert.strictEqual(e.angebotsText("keine Tabelle"), null);
 console.log("Erweiterung: alle Tests bestanden");
+
+// Kennung steht nicht im Link, sondern in der Kachel darum herum (mit "Ab"-Preis dahinter)
+const kachel = {textContent: "Strahlendes Glurak (CRZ 020) Ab 6,90 €", parentElement: null};
+const bildlink = {textContent: "", title: "", href: "https://www.cardmarket.com/de/Pokemon/Products/Singles/Crown-Zenith/Radiant-Charizard", parentElement: kachel};
+assert.ok(e.passenderTreffer([bildlink], "CRZ", "020").endsWith("Radiant-Charizard"));
+const mitPreis = {textContent: "Strahlendes Glurak (CRZ 020) Ab 6,90 €", href: "https://www.cardmarket.com/de/Pokemon/Products/Singles/Crown-Zenith/Radiant-Charizard"};
+assert.ok(e.passenderTreffer([mitPreis], "CRZ", "020"));
+console.log("Erweiterung: Kacheln ok");

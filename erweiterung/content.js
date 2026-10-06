@@ -26,9 +26,20 @@ function passenderTreffer(links, kuerzel, nummer) {
   const zahl = parseInt(nummer, 10);
   const kandidaten = [];
   for (const a of links) {
-    const text = (a.textContent || "").trim();
-    const m = /\(([A-Z0-9-]+)\s+([A-Z]*\d+[a-z]?)\)\s*$/.exec(text);
-    if (!m || !a.href.includes("/Products/Singles/")) continue;
+    if (!a.href || !a.href.includes("/Products/Singles/")) continue;
+    // Die Kennung "(CRZ 020)" kann im Link selbst oder in der umgebenden Kachel stehen
+    const KENNUNG = /\([A-Z0-9-]+\s+[A-Z]*\d+[a-z]?\)/g;
+    let text = (a.textContent || "") + " " + (a.title || "");
+    let el = a;
+    for (let i = 0; i < 3 && !KENNUNG.test(text) && el.parentElement; i++) {
+      el = el.parentElement;
+      const t = el.textContent || "";
+      if ((t.match(KENNUNG) || []).length > 1) break;  // Behälter mit mehreren Karten: nicht verwenden
+      text = t;
+    }
+    KENNUNG.lastIndex = 0;
+    const m = /\(([A-Z0-9-]+)\s+([A-Z]*\d+[a-z]?)\)/.exec(text);
+    if (!m) continue;
     const gleicheNummer = m[2] === nummer || (!isNaN(zahl) && parseInt(m[2].replace(/\D/g, ""), 10) === zahl
                                                && m[2].replace(/\d/g, "") === String(nummer).replace(/\d/g, ""));
     if (!gleicheNummer) continue;
@@ -44,6 +55,19 @@ function angebotsText(text) {
   return i < 0 ? null : text.slice(i, i + 1500);
 }
 
+function hinweis(text) {
+  if (typeof document === "undefined") return;
+  let b = document.getElementById("pka-hinweis");
+  if (!b) {
+    b = document.createElement("div");
+    b.id = "pka-hinweis";
+    b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#1f4fd1;color:#fff;" +
+                      "font:bold 15px system-ui;padding:10px 16px;text-align:center";
+    document.documentElement.appendChild(b);
+  }
+  b.textContent = "Pokémon-Karten-Check: " + text;
+}
+
 function senden(nachricht) {
   return new Promise(ok => chrome.runtime.sendMessage(nachricht, ok));
 }
@@ -52,21 +76,35 @@ function ohneAnker(href) { return href.split("#")[0]; }
 
 async function weiter(antwort) {
   const ziel = antwort && (antwort.naechste_url || antwort.app_url);
-  if (!ziel) return;
+  if (!ziel) { hinweis("Fehler: " + (antwort?.fehler || "keine Antwort von der App")); return; }
+  if (!antwort.naechste_url) { try { sessionStorage.removeItem("pka"); } catch (_) {} }
   const nurAnkerNeu = ohneAnker(ziel) === ohneAnker(location.href);
   location.href = ziel;
   // Ändert sich nur der Teil nach "#", lädt der Browser die Seite nicht neu: dann selbst neu laden
   if (nurAnkerNeu) location.reload();
 }
 
+// Der laufende Auftrag wird zusätzlich im Tab gemerkt (2 Minuten), falls eine Cloudflare-Prüfung die
+// Adresse ohne "#pka=" neu lädt.
+function gemerkterAuftrag() {
+  try {
+    const g = JSON.parse(sessionStorage.getItem("pka") || "null");
+    return g && Date.now() - g.zeit < 120000 ? g.id : null;
+  } catch (_) { return null; }
+}
+
 async function arbeiten() {
-  const id = auftragAusAdresse(location.href);
+  const id = auftragAusAdresse(location.href) || gemerkterAuftrag();
   if (!id) return;
+  try { sessionStorage.setItem("pka", JSON.stringify({id, zeit: Date.now()})); } catch (_) {}
   const titel = document.title.toLowerCase();
   if (titel.includes("moment") || titel.includes("sicherheits")) return; // Prüfseite: du bestätigst selbst
+  hinweis("Auftrag " + id + " wird bearbeitet …");
   await new Promise(r => setTimeout(r, PAUSE_MS));
   const auftrag = await senden({art: "auftrag", id});
-  if (!auftrag || auftrag.fehler) { alert("Pokémon-Karten-Check: " + (auftrag?.fehler || "keine Antwort")); return; }
+  if (!auftrag || auftrag.fehler) { hinweis("Fehler: " + (auftrag?.fehler || "keine Antwort von der App")); return; }
+  hinweis(`hole Preis aus Deutschland für ${auftrag.name} (${auftrag.kuerzel} ${auftrag.nummer}) – ` +
+          `noch ${auftrag.offen} Karten. Bitte diesen Tab nicht bedienen.`);
 
   if (location.pathname.includes("/Products/Singles/")) {
     if (!filterAktiv(location.href)) { location.href = mitFilter(location.href, id); return; }
