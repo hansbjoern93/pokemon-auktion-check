@@ -80,6 +80,7 @@ def neue_auswertung(con, indizes: Indizes, dateien: list[tuple[str, bytes]], ord
                 "zeile": f"{len(fotos)}-{a.nr}", "foto": len(fotos), "nr": a.nr, "box": list(map(int, a.box)),
                 "sicherheit": e.sicherheit, "sprache": e.sprache, "begruendung": e.begruendung, "quelle": e.quelle,
                 "kandidaten": [c.id for c in e.karten],
+                "alternativen": [c.id for c in e.alternativen],
             })
     con.execute("INSERT INTO auswertungen (id, name, fotos, zeilen, erstellt) VALUES (?, ?, ?, ?, ?)",
                 (pruef, ", ".join(n for n, _ in dateien), json.dumps(fotos), json.dumps(zeilen),
@@ -121,6 +122,8 @@ def ergebnis(con: sqlite3.Connection, auswertung_id: str) -> dict | None:
             "erkannt": bool(karten),
             "von_hand": bool(kor and kor["karte_id"]),
             "karten": [_karte_json(k) for k in karten],
+            "alternativen": [] if kor and kor["karte_id"] else [
+                _karte_json(k) for i in z.get("alternativen", []) if (k := lade_karte(con, i, sprache))],
             "wert": wert, "wert_quelle": quelle,
             "cardmarket": preise_de.suchlink(name_en) if karten else None,
             "wartet_auf_preis": bool(offen and offen["auswertung"] == auswertung_id and offen["zeile"] == z["zeile"]),

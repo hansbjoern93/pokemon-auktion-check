@@ -197,3 +197,13 @@ def test_karte_mit_falschen_kp_ist_keine_alternative(con):
     con.commit()
     e = erkenne_aus_merkmalen(con, Indizes.laden(con), m(["kleoparday"], [190], ["schattenreiser"]), None, set())
     assert [k.id for k in e.karten] == ["swsh6-104"]
+
+
+def test_aehnliche_andere_karte_wird_nicht_eingerechnet(con):
+    """Normales Glurak (anderer Text) darf den Wert von Radiant Charizard nicht drücken."""
+    _karte(con, "swsh12.5-020", "en", "Radiant Charizard", 160, [("Combustion Blast", "250")])
+    _karte(con, "g1-RC5", "en", "Charizard", 160, [("Recall", None)])
+    con.commit()
+    e = erkenne_aus_merkmalen(con, Indizes.laden(con), m(["radiantcharizard", "charizard"], [160], []), None, set())
+    assert [k.id for k in e.karten] == ["swsh12.5-020"]
+    assert all(k.id != "swsh12.5-020" for k in e.alternativen)

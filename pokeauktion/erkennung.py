@@ -83,6 +83,8 @@ class Ergebnis:
     # Drucke mit gleichem Text, die per Bildvergleich/Hinweis ausgeschlossen wurden.
     # Die günstigste davon wird bei teuren Treffern zur Kontrolle mit angezeigt.
     ausgeschlossen: list[Karte] = field(default_factory=list)
+    # Andere, ähnliche Karten (anderer Text). Werden angezeigt, aber nicht in den Wert eingerechnet.
+    alternativen: list[Karte] = field(default_factory=list)
 
     @property
     def guenstigste_alternative(self) -> Karte | None:
@@ -397,14 +399,17 @@ def erkenne_aus_merkmalen(con, indizes: Indizes, m: Merkmale, bild, hinweis_spra
         sicherheit = "niedrig"
     if len(ids) > 1:
         begruendung.append(f"{len(ids)} mögliche Drucke")
+    alt_ids: list[str] = []
     if konkurrenz:
-        # Nie still auf eine Karte festlegen: ähnliche Karten immer mit anzeigen
+        # Nie still auf eine Karte festlegen: ähnliche Karten immer mit anzeigen (aber nicht einrechnen)
         begruendung.append(f"{len(konkurrenz)} weitere ähnliche Karten")
-        ids += [i for i in dict.fromkeys(k.karte_id for k in konkurrenz) if i not in ids][:4]
+        alt_ids = [i for i in dict.fromkeys(k.karte_id for k in konkurrenz) if i not in ids][:4]
 
     karten = [k for i in ids if (k := lade_karte(con, i, bester.sprache))]
     ausgeschlossen = [k for i in alle_ids if i not in ids and (k := lade_karte(con, i, bester.sprache))]
-    return Ergebnis(sicherheit, karten, bester.sprache, m, ", ".join(begruendung), ausgeschlossen=ausgeschlossen)
+    alternativen = [k for i in alt_ids if (k := lade_karte(con, i, bester.sprache))]
+    return Ergebnis(sicherheit, karten, bester.sprache, m, ", ".join(begruendung), ausgeschlossen=ausgeschlossen,
+                    alternativen=alternativen)
 
 
 def sprachen_aus_hinweis(text: str | None) -> set[str]:

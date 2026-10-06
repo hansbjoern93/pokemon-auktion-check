@@ -138,13 +138,20 @@ function kartenZelle(z) {
   } else {
     s += `<div class="leise">${esc(k.set)} #${esc(k.nummer)} · ${esc(k.seltenheit || "")}</div>`;
   }
+  if ((z.alternativen || []).length) {
+    s += `<div class="alt leise">Auch möglich (nicht eingerechnet): ` +
+      z.alternativen.map(c => `${esc(c.name)} – ${esc(c.set)} #${esc(c.nummer)}`).join("; ") + "</div>";
+  }
   return s;
 }
 
 function aktionZelle(z) {
-  const auswahl = z.karten.length > 1
-    ? `<select data-wahl="${z.zeile}"><option value="">Druck wählen …</option>${z.karten.map(c =>
-        `<option value="${c.id}">${esc(c.set)} #${esc(c.nummer)}</option>`).join("")}</select>` : "";
+  const optionen = z.karten.length > 1 ? z.karten.map(c =>
+      `<option value="${c.id}">${esc(c.set)} #${esc(c.nummer)}</option>`).join("") : "";
+  const andere = (z.alternativen || []).map(c =>
+      `<option value="${c.id}">andere Karte: ${esc(c.name)} – ${esc(c.set)} #${esc(c.nummer)}</option>`).join("");
+  const auswahl = optionen || andere
+    ? `<select data-wahl="${z.zeile}"><option value="">${optionen ? "Druck wählen …" : "Andere Möglichkeit …"}</option>${optionen}${andere}</select>` : "";
   return `<div class="aktion">
     ${z.cardmarket ? `<button data-oeffnen="${z.zeile}" data-link="${esc(z.cardmarket)}">Auf Cardmarket öffnen</button>` : ""}
     <input type="number" step="0.01" min="0" placeholder="Preis €" data-preis="${z.zeile}">
