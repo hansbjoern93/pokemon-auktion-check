@@ -189,3 +189,11 @@ def test_versionen_ohne_nullpreise_und_doppelte_produkte(con):
         con.execute("INSERT INTO preise (karte_id, variante, id_produkt, trend, trend_holo, abgerufen) "
                     "VALUES ('sv04.5-181', ?, ?, ?, ?, 'x')", (variante, produkt, trend, trend_holo))
     assert [(v.bezeichnung, v.trend) for v in versionen(con, "sv04.5-181")] == [("Holo", 3.39)]
+
+
+def test_karte_mit_falschen_kp_ist_keine_alternative(con):
+    _karte(con, "swsh6-104", "de", "Kleoparda V", 190, [("Schattenreißer", "110")])
+    _karte(con, "xy4-57", "de", "Kleoparda", 90, [("Kratzer", "20")])
+    con.commit()
+    e = erkenne_aus_merkmalen(con, Indizes.laden(con), m(["kleoparday"], [190], ["schattenreiser"]), None, set())
+    assert [k.id for k in e.karten] == ["swsh6-104"]

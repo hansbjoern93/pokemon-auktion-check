@@ -107,7 +107,11 @@ def _ocr():
     # rapidocr bringt die Erkennungsmodelle (PP-OCRv6) im Paket mit, es wird nichts nachgeladen.
     import logging as _logging
     from rapidocr import RapidOCR
-    ocr = RapidOCR()
+    _logging.disable(_logging.INFO)  # RapidOCR meldet beim Start jede Modelldatei; das ist nur Rauschen
+    try:
+        ocr = RapidOCR()
+    finally:
+        _logging.disable(_logging.NOTSET)
     _logging.getLogger("RapidOCR").setLevel(_logging.WARNING)
     return ocr
 
@@ -349,8 +353,10 @@ def erkenne_aus_merkmalen(con, indizes: Indizes, m: Merkmale, bild, hinweis_spra
     gruppe = [k for k in kandidaten if k.punkte >= bester.punkte - 6 and k.sprache == bester.sprache
               and (k.karte_id == bester.karte_id or _gleicher_text(con, k, bester))]
     # Gleich gute Kandidaten mit anderem Text (z. B. Name gleich, KP nicht gelesen) machen es unsicher
+    # Eine Karte mit gelesenen, aber nicht passenden KP ist keine echte Alternative.
     konkurrenz = [k for k in kandidaten if k.punkte >= bester.punkte - 6 and k not in gruppe
-                  and k.karte_id not in {g.karte_id for g in gruppe}]
+                  and k.karte_id not in {g.karte_id for g in gruppe}
+                  and not (bester.kp_passt and k.kp_passt is False)]
 
     begruendung = ["Name unlesbar, über Attacken gefunden" if nur_attacken
                    else f"Name '{bester.name}' ({bester.name_punkte:.0f}%)"]
