@@ -124,7 +124,7 @@ def ergebnis(con: sqlite3.Connection, auswertung_id: str) -> dict | None:
                 de_vollstaendig = all(p is not None for p in de)
         if wert is None:
             wert, quelle = _billigster(karten)
-        name_en = (englischer_name(con, karten[0].id) if karten else None) or (karten[0].name if karten else "")
+        name_en = _englischer_name(con, karten[0].id) if karten else ""
         zeilen.append({
             **{k: z[k] for k in ("zeile", "foto", "nr", "box", "sicherheit", "begruendung", "quelle")},
             "sprache": sprache if karten else None,
@@ -165,8 +165,20 @@ def korrigieren(con, auswertung_id: str, zeile: str, karte_id: str | None = ...,
 
 
 def _englischer_name(con, karte_id: str) -> str:
-    return englischer_name(con, karte_id) or (con.execute(
-        "SELECT name FROM karten_texte WHERE karte_id = ? LIMIT 1", (karte_id,)).fetchone() or {"name": karte_id})["name"]
+    """Name für die Cardmarket-Suche. Asiatische Karten haben keinen englischen Text: dann den englischen
+    Namen einer Karte mit derselben Pokédex-Nummer und demselben Suffix nehmen (ブラッキー -> Umbreon)."""
+    if name := englischer_name(con, karte_id):
+        return name
+    k = con.execute("SELECT dex_ids, suffix FROM karten WHERE id = ?", (karte_id,)).fetchone()
+    if k and k["dex_ids"]:
+        z = con.execute(
+            """SELECT t.name FROM karten k JOIN karten_texte t ON t.karte_id = k.id AND t.sprache = 'en'
+               WHERE k.dex_ids = ? AND COALESCE(k.suffix, '') = COALESCE(?, '')
+               GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 1""", (k["dex_ids"], k["suffix"])).fetchone()
+        if z:
+            return z["name"]
+    z = con.execute("SELECT name FROM karten_texte WHERE karte_id = ? LIMIT 1", (karte_id,)).fetchone()
+    return z["name"] if z else karte_id
 
 
 def _auftrag_url(con, auftrag_id: int, karte_id: str) -> str:
