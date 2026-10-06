@@ -6,3 +6,6 @@ rapidocr>=3.9,<4
 onnxruntime>=1.17
 rapidfuzz>=3.6
 pytest>=8.0
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart>=0.0.9

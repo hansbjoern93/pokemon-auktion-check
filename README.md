@@ -3,8 +3,36 @@
 Lokale Web-App, die eBay-Auktionen mit Pokémon-Karten auswertet: Sie erkennt die Karten auf den
 Fotos und zeigt den Cardmarket-Trendpreis jeder Karte sowie die Summe als Spanne.
 
-> **Stand: Schritt 2 von 5.** Kartendatenbank (1) und Erkennung als Skript (2) sind fertig.
-> eBay-Anbindung (3), Weboberfläche (4) und Motivsuche (5) folgen.
+> **Stand:** Kartendatenbank, Erkennung und Weboberfläche mit festem Gesamtwert (Preise aus
+> Deutschland per Lesezeichen) sind fertig. Die eBay-Anbindung folgt.
+
+## Schnellstart
+
+- **Windows:** Doppelklick auf `start.bat`
+- **macOS/Linux:** `./start.sh`
+
+Beim ersten Start wird alles eingerichtet und die Kartendatenbank geladen (einmalig 15 bis 40
+Minuten). Danach öffnet sich die App im Browser unter http://127.0.0.1:8000. Beenden mit Strg + C
+im schwarzen Fenster.
+
+### So kommst du zum festen Gesamtwert
+
+1. **Foto einlesen** und auf „Auswerten“ klicken. Die App erkennt die Karten und zeigt sofort
+   einen **vorläufigen** Wert: den billigsten „ab“-Preis auf Cardmarket. Ist der Druck unsicher,
+   zählt immer der billigste mögliche Druck.
+2. **Lesezeichen einmalig einrichten:** Ziehe den Knopf „Preis an App“ (auf der Seite unter
+   „Einmalig einrichten“) in die Lesezeichenleiste deines Browsers.
+3. **Pro Karte, die sich lohnt:** Klicke auf „Auf Cardmarket öffnen“ und wähle dort die richtige
+   Karte. Klicke dann auf das Lesezeichen: Beim ersten Klick setzt es den Filter **Deutschland, ab
+   Zustand Good**, nach dem Laden übernimmt ein zweiter Klick den **ersten (billigsten) Preis**.
+   Die Summe aktualisiert sich von selbst.
+4. Du kannst jeden Preis auch von Hand eintragen und eine falsch erkannte Karte korrigieren
+   („Druck wählen“ oder „Andere Karte …“).
+
+Das Lesezeichen liest nur die Seite, die du selbst geöffnet hast. Es gibt keinen automatischen
+Abruf und kein Scraping. Ein übernommener Preis gilt 3 Tage und wird auch in anderen Auswertungen
+für dieselbe Karte genutzt. Konnte das Lesezeichen keinen Preis finden, steht der gelesene Text in
+`data/letzter_cardmarket_text.txt`.
 
 Hinweis: Die Preise sind Cardmarket-**Trendwerte** und gelten für gut erhaltene Karten. Der Zustand
 beeinflusst den Preis stark. Zustandsbewertung, Echtheitsprüfung und automatisches Bieten gehören

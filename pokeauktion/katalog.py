@@ -41,6 +41,12 @@ class Karte:
         return min(werte) if werte else None
 
     @property
+    def preis_min_ab(self) -> float | None:
+        """Billigster "ab"-Preis (Cardmarket-Preisführer, alle Länder und Zustände)."""
+        werte = [v.low for v in self.versionen if v.low is not None]
+        return min(werte) if werte else None
+
+    @property
     def preis_max(self) -> float | None:
         werte = [v.trend for v in self.versionen if v.trend is not None]
         return max(werte) if werte else None

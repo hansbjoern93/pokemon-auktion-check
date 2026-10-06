@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pokémon-Karten-Check</title>
+<style>
+  :root { --bg:#f5f6fa; --karte:#fff; --text:#1d2433; --leise:#667085; --rand:#e3e6ee; --blau:#1f4fd1;
+          --gruen:#1e8e3e; --gelb:#b7791f; --rot:#c53030; --de:#e8f5ec; --vorl:#fff7e6; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); }
+  main { max-width:1200px; margin:0 auto; padding:16px; }
+  h1 { font-size:24px; margin:8px 0 4px; } h2 { font-size:18px; margin:0 0 12px; }
+  .box { background:var(--karte); border:1px solid var(--rand); border-radius:10px; padding:16px; margin:16px 0; }
+  .leise { color:var(--leise); font-size:13px; }
+  button, .knopf { font:inherit; border:0; border-radius:8px; padding:8px 14px; background:var(--blau); color:#fff; cursor:pointer; text-decoration:none; display:inline-block; }
+  button.zweit, .knopf.zweit { background:#eef1f8; color:var(--text); }
+  button:disabled { opacity:.5; cursor:wait; }
+  input[type=number], input[type=text] { font:inherit; padding:6px 8px; border:1px solid var(--rand); border-radius:6px; }
+  .summe { display:flex; flex-wrap:wrap; gap:24px; align-items:baseline; }
+  .summe .gross { font-size:34px; font-weight:700; }
+  .fotos { display:flex; flex-wrap:wrap; gap:12px; }
+  .foto { position:relative; max-width:380px; width:100%; }
+  .foto img { width:100%; display:block; border-radius:6px; }
+  .rahmen { position:absolute; border:3px solid var(--gruen); border-radius:4px; background:none; }
+  .rahmen.r-mittel { border-color:var(--gelb); } .rahmen.r-niedrig, .rahmen.r-nicht { border-color:var(--rot); }
+  .rahmen span { position:absolute; left:-3px; top:-3px; background:#000c; color:#fff; font-weight:700; font-size:12px; padding:1px 6px; border-radius:4px 0 4px 0; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--rand); vertical-align:top; }
+  th { font-size:13px; color:var(--leise); font-weight:600; }
+  td.wert { white-space:nowrap; font-weight:700; text-align:right; }
+  .ref { width:56px; border-radius:4px; }
+  .marke { display:inline-block; font-size:12px; padding:1px 7px; border-radius:10px; font-weight:600; }
+  .hoch { background:#e6f4ea; color:var(--gruen); } .mittel { background:#fdf3e1; color:var(--gelb); }
+  .niedrig, .nicht { background:#fdecec; color:var(--rot); }
+  .q-de { background:var(--de); color:var(--gruen); } .q-ab, .q-trend { background:var(--vorl); color:var(--gelb); }
+  .aktion { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .aktion input { width:90px; }
+  .lesezeichen { display:inline-block; padding:8px 14px; border:2px dashed var(--blau); border-radius:8px; font-weight:700; color:var(--blau); text-decoration:none; }
+  .fehler { color:var(--rot); font-weight:600; }
+  .alt { margin-top:6px; font-size:13px; }
+  details summary { cursor:pointer; font-weight:600; }
+  @media (max-width:760px) { .breit { display:none; } td, th { padding:6px 3px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Pokémon-Karten-Check</h1>
+  <div class="leise">Foto einlesen → Karten erkennen → fester Gesamtwert mit Preisen aus Deutschland.</div>
+
+  <section class="box">
+    <h2>1. Foto einlesen</h2>
+    <form id="formular">
+      <input type="file" id="dateien" accept="image/*" multiple required>
+      <button id="los" type="submit">Auswerten</button>
+      <span id="status" class="leise"></span>
+    </form>
+    <div class="leise" style="margin-top:8px">Mehrere Fotos einer Auktion auf einmal auswählen. Gleiche Fotos werden nicht doppelt ausgewertet.</div>
+    <div id="frueher" class="leise" style="margin-top:8px"></div>
+  </section>
+
+  <section class="box">
+    <details id="lzbox">
+      <summary>Einmalig einrichten: Lesezeichen „Preis an App“</summary>
+      <ol>
+        <li>Ziehe diesen Knopf mit der Maus in deine Lesezeichenleiste (Strg + Umschalt + B blendet sie ein):
+          <a id="lesezeichen" class="lesezeichen" href="#">Preis an App</a></li>
+        <li>In der Tabelle unten bei einer Karte auf <b>„Auf Cardmarket öffnen“</b> klicken und dort die richtige Karte anklicken.</li>
+        <li>Auf der Kartenseite das Lesezeichen anklicken: Beim ersten Mal setzt es den Filter <b>Deutschland, ab Good</b>.
+            Nach dem Laden <b>noch einmal anklicken</b>: Der erste Preis wird übernommen.</li>
+      </ol>
+      <div class="leise">Das Lesezeichen liest nur die Seite, die du gerade selbst ansiehst. Es ruft nichts automatisch ab.</div>
+    </details>
+  </section>
+
+  <div id="ergebnis"></div>
+
+  <p class="leise">Hinweis: Die Werte gelten für gut erhaltene Karten. Der Zustand beeinflusst den Preis stark.
+  „Vorläufig“ = billigster „ab“-Preis auf Cardmarket (alle Länder und Zustände), bis du den Preis aus Deutschland übernimmst.
+  Keine Zustandsbewertung, keine Echtheitsprüfung.</p>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const euro = w => w == null ? "–" : w.toLocaleString("de-DE", {style:"currency", currency:"EUR"});
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const SPRACHEN = {de:"Deutsch", en:"Englisch", fr:"Französisch", it:"Italienisch", es:"Spanisch", pt:"Portugiesisch",
+  ja:"Japanisch", ko:"Koreanisch", "zh-cn":"Chinesisch", "zh-tw":"Chinesisch (trad.)", id:"Indonesisch", th:"Thai"};
+let aktuell = null, wartenBis = 0;
+
+fetch("/api/lesezeichen").then(r => r.json()).then(d => { $("#lesezeichen").href = d.code; });
+fetch("/api/auswertungen").then(r => r.json()).then(liste => {
+  if (!liste.length) return;
+  $("#frueher").innerHTML = "Frühere Auswertungen: " + liste.slice(0, 8).map(a =>
+    `<a href="#${a.id}" data-id="${a.id}">${esc(a.name.slice(0, 40))}</a>`).join(" · ");
+  $("#frueher").querySelectorAll("a").forEach(a => a.onclick = () => laden(a.dataset.id));
+});
+if (location.hash.length > 1) laden(location.hash.slice(1));
+
+$("#formular").onsubmit = async ev => {
+  ev.preventDefault();
+  const daten = new FormData();
+  for (const f of $("#dateien").files) daten.append("fotos", f);
+  $("#los").disabled = true; $("#status").textContent = "Karten werden erkannt … (pro Foto etwa 10 bis 30 Sekunden)";
+  try {
+    const r = await fetch("/api/auswerten", {method:"POST", body:daten});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || "Fehler");
+    zeigen(d); location.hash = d.id; $("#status").textContent = "";
+  } catch (e) { $("#status").innerHTML = `<span class="fehler">${esc(e.message)}</span>`; }
+  $("#los").disabled = false;
+};
+
+async function laden(id) {
+  const r = await fetch(`/api/auswertung/${id}`);
+  if (r.ok) zeigen(await r.json());
+}
+
+async function senden(zeile, daten) {
+  const r = await fetch(`/api/auswertung/${aktuell.id}/korrektur`, {method:"POST",
+    headers:{"Content-Type":"application/json"}, body:JSON.stringify({zeile, ...daten})});
+  zeigen(await r.json());
+}
+
+function wertZelle(z) {
+  if (!z.erkannt) return "–";
+  const q = {de:"aus DE", ab:"vorläufig", trend:"vorläufig (Trend)", keiner:"kein Preis"}[z.wert_quelle];
+  return `${euro(z.wert)}<br><span class="marke q-${z.wert_quelle}">${q}</span>`;
+}
+
+function kartenZelle(z) {
+  if (!z.erkannt) return `<b>nicht erkannt</b><div class="leise">${esc(z.begruendung)}</div>`;
+  const k = z.karten[0];
+  let s = `<b>${esc(k.name)}</b>${z.von_hand ? ' <span class="leise">(von Hand)</span>' : ""}`;
+  if (z.karten.length > 1) {
+    s += `<div class="alt">${z.karten.length} mögliche Drucke, gerechnet mit dem billigsten:<br>` +
+      z.karten.map(c => `${esc(c.set)} #${esc(c.nummer)} (${esc(c.seltenheit || "?")}) ab ${euro(c.ab)}`).join("<br>") + "</div>";
+  } else {
+    s += `<div class="leise">${esc(k.set)} #${esc(k.nummer)} · ${esc(k.seltenheit || "")}</div>`;
+  }
+  return s;
+}
+
+function aktionZelle(z) {
+  const auswahl = z.karten.length > 1
+    ? `<select data-wahl="${z.zeile}"><option value="">Druck wählen …</option>${z.karten.map(c =>
+        `<option value="${c.id}">${esc(c.set)} #${esc(c.nummer)}</option>`).join("")}</select>` : "";
+  return `<div class="aktion">
+    ${z.cardmarket ? `<button data-oeffnen="${z.zeile}" data-link="${esc(z.cardmarket)}">Auf Cardmarket öffnen</button>` : ""}
+    <input type="number" step="0.01" min="0" placeholder="Preis €" data-preis="${z.zeile}">
+    <button class="zweit" data-setzen="${z.zeile}">Übernehmen</button>
+    ${auswahl}
+    <button class="zweit" data-suchen="${z.zeile}">Andere Karte …</button>
+    ${z.wartet_auf_preis ? '<span class="leise">wartet auf Lesezeichen …</span>' : ""}
+  </div>`;
+}
+
+function zeigen(d) {
+  aktuell = d;
+  const fotos = d.fotos.map((f, i) => {
+    const rahmen = d.zeilen.filter(z => z.foto === i + 1).map(z => {
+      const [x, y, w, h] = z.box, klasse = "r-" + (z.erkannt ? z.sicherheit : "nicht");
+      return `<div class="rahmen ${klasse}" style="left:${100*x/f.breite}%;top:${100*y/f.hoehe}%;width:${100*w/f.breite}%;height:${100*h/f.hoehe}%"><span>${z.foto}-${z.nr}</span></div>`;
+    }).join("");
+    return `<div class="foto"><img src="/fotos/${d.id}/${f.datei}" alt="Foto ${i + 1}">${rahmen}</div>`;
+  }).join("");
+  const zeilen = d.zeilen.map(z => `<tr>
+      <td style="white-space:nowrap"><b>${z.foto}-${z.nr}</b></td>
+      <td class="breit">${z.karten[0]?.bild ? `<img class="ref" src="${esc(z.karten[0].bild)}" loading="lazy" alt="">` : ""}</td>
+      <td>${kartenZelle(z)}</td>
+      <td class="breit">${esc(SPRACHEN[z.sprache] || z.sprache || "")}</td>
+      <td><span class="marke ${z.erkannt ? z.sicherheit : "nicht"}">${z.erkannt ? z.sicherheit : "nicht erkannt"}</span></td>
+      <td class="wert">${wertZelle(z)}</td>
+      <td>${aktionZelle(z)}</td></tr>`).join("");
+  $("#ergebnis").innerHTML = `
+    <section class="box summe">
+      <div><div class="leise">Gesamtwert (fest)</div><div class="gross">${euro(d.summe)}</div></div>
+      <div>${d.anzahl - d.nicht_erkannt} Karten erkannt · <b>${d.mit_de_preis}</b> mit Preis aus Deutschland ·
+        ${d.anzahl - d.nicht_erkannt - d.mit_de_preis - d.ohne_preis} vorläufig${d.ohne_preis ? ` · ${d.ohne_preis} ohne Preis` : ""}
+        · <b>${d.nicht_erkannt}</b> nicht erkannt</div>
+    </section>
+    <section class="box"><h2>Fotos</h2><div class="fotos">${fotos}</div>
+      <div class="leise" style="margin-top:6px">Rahmenfarbe = Sicherheit: grün hoch, gelb mittel, rot niedrig/nicht erkannt.</div></section>
+    <section class="box"><h2>Karten (wertvollste zuerst)</h2>
+      <table><thead><tr><th>Nr.</th><th class="breit"></th><th>Karte</th><th class="breit">Sprache</th><th>Sicherheit</th><th style="text-align:right">Wert</th><th>Aktionen</th></tr></thead>
+      <tbody>${zeilen}</tbody></table></section>`;
+
+  document.querySelectorAll("[data-oeffnen]").forEach(b => b.onclick = async () => {
+    await fetch(`/api/auswertung/${d.id}/oeffnen/${b.dataset.oeffnen}`, {method:"POST"});
+    window.open(b.dataset.link, "_blank");
+    wartenBis = Date.now() + 10 * 60 * 1000; abfragen();
+  });
+  document.querySelectorAll("[data-setzen]").forEach(b => b.onclick = () => {
+    const feld = document.querySelector(`[data-preis="${b.dataset.setzen}"]`);
+    const wert = feld.value === "" ? null : parseFloat(feld.value.replace(",", "."));
+    senden(b.dataset.setzen, {preis_de: wert, preis_aendern: true});
+  });
+  document.querySelectorAll("[data-wahl]").forEach(s => s.onchange = () => {
+    if (s.value) senden(s.dataset.wahl, {karte_id: s.value, karte_aendern: true});
+  });
+  document.querySelectorAll("[data-suchen]").forEach(b => b.onclick = () => suchen(b.dataset.suchen));
+}
+
+async function suchen(zeile) {
+  const q = prompt("Kartenname (beliebige Sprache), z. B. „Glurak ex“:");
+  if (!q) return;
+  const treffer = await (await fetch(`/api/suche?q=${encodeURIComponent(q)}`)).json();
+  if (!treffer.length) { alert("Keine Karte gefunden."); return; }
+  const liste = treffer.map((t, i) => `${i + 1}: ${t.name} – ${t.set} #${t.nummer} (${t.seltenheit || "?"}) ab ${euro(t.ab)}`).join("\n");
+  const nr = parseInt(prompt(`Nummer der richtigen Karte eingeben:\n\n${liste}`), 10);
+  if (nr >= 1 && nr <= treffer.length) senden(zeile, {karte_id: treffer[nr - 1].id, karte_aendern: true});
+}
+
+async function abfragen() {
+  if (!aktuell || Date.now() > wartenBis) return;
+  const r = await fetch(`/api/auswertung/${aktuell.id}`);
+  if (r.ok) {
+    const d = await r.json();
+    const vorher = JSON.stringify(aktuell.zeilen.map(z => [z.wert, z.wert_quelle]));
+    if (vorher !== JSON.stringify(d.zeilen.map(z => [z.wert, z.wert_quelle]))) { zeigen(d); wartenBis = 0; return; }
+  }
+  setTimeout(abfragen, 3000);
+}
+</script>
+</body>
+</html>
